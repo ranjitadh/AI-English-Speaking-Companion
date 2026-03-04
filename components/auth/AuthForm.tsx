@@ -1,182 +1,157 @@
 'use client'
 
 import { useState } from 'react'
-import { useFormStatus } from 'react-dom'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { motion, AnimatePresence } from 'framer-motion'
 import { login, signup, loginWithGoogle } from '@/app/actions/auth'
 import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
-import { Loader2, Eye, EyeOff } from 'lucide-react'
+import { LucideShieldCheck, LucideSparkles } from 'lucide-react'
 
 export function AuthForm() {
-    const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login')
-    const router = useRouter()
+    const [isLogin, setIsLogin] = useState(true)
     const [isLoading, setIsLoading] = useState(false)
-    const [showPassword, setShowPassword] = useState(false)
+    const router = useRouter()
 
-    async function handleLogin(formData: FormData) {
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault()
         setIsLoading(true)
-        const result = await login(formData)
-        setIsLoading(false)
 
-        if (result?.error) {
-            toast.error(result.error)
-        } else {
-            toast.success("Welcome back!")
-            router.push('/dashboard')
-        }
-    }
+        const formData = new FormData(e.currentTarget)
 
-    async function handleSignup(formData: FormData) {
-        setIsLoading(true)
-        const result = await signup(formData)
-        setIsLoading(false)
-
-        if (result?.error) {
-            toast.error(result.error)
-        } else {
-            toast.success("Account created successfully!")
-            router.push('/dashboard')
+        try {
+            if (isLogin) {
+                const result = await login(formData)
+                if (result?.error) {
+                    toast.error(result.error)
+                }
+            } else {
+                const result = await signup(formData)
+                if (result?.error) {
+                    toast.error(result.error)
+                } else if (result?.success) {
+                    toast.success("Account created!")
+                    await login(formData)
+                }
+            }
+        } catch (err) {
+            if (err instanceof Error && err.message.includes('NEXT_REDIRECT')) {
+                return
+            }
+        } finally {
+            setIsLoading(false)
         }
     }
 
     return (
-        <Card className="w-full max-w-md mx-auto shadow-none border border-border/50 bg-card/50 backdrop-blur-sm">
-            <CardHeader className="space-y-1 text-center">
-                <CardTitle className="text-2xl font-bold tracking-tight">
-                    {activeTab === 'login' ? 'Welcome back' : 'Create an account'}
-                </CardTitle>
-                <CardDescription>
-                    {activeTab === 'login'
-                        ? 'Enter your credentials to access your account'
-                        : 'Enter your email below to create your account'}
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'login' | 'signup')} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2 mb-8 bg-muted/50 p-1">
-                        <TabsTrigger value="login" className="rounded-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">Login</TabsTrigger>
-                        <TabsTrigger value="signup" className="rounded-sm data-[state=active]:bg-background data-[state=active]:shadow-sm">Sign Up</TabsTrigger>
-                    </TabsList>
+        <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, ease: "easeOut" }}
+            className="max-w-xs mx-auto pt-32 px-4"
+        >
+            <div className="mb-14 text-center">
+                <Link href="/" className="inline-block mb-10 group relative">
+                    <motion.img
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        src="/SpeakMate.png"
+                        alt="SpeakMate"
+                        className="h-16 w-auto mx-auto"
+                    />
+                </Link>
+                <h1 className="text-2xl font-bold tracking-tight text-gray-900 mb-2">
+                    {isLogin ? 'Sign in' : 'Create account'}
+                </h1>
+                <p className="text-xs font-medium text-gray-400 italic">
+                    {isLogin ? 'Start your daily session.' : 'Join the community of speakers.'}
+                </p>
+            </div>
 
-                    <TabsContent value="login">
-                        <form action={handleLogin} className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="email">Email</Label>
-                                <Input id="email" name="email" type="email" placeholder="m@example.com" required className="bg-background/50" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="password">Password</Label>
-                                <div className="relative">
-                                    <Input
-                                        id="password"
-                                        name="password"
-                                        type={showPassword ? "text" : "password"}
-                                        required
-                                        className="bg-background/50 pr-10"
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                    >
-                                        {showPassword ? (
-                                            <EyeOff className="h-4 w-4 text-muted-foreground" />
-                                        ) : (
-                                            <Eye className="h-4 w-4 text-muted-foreground" />
-                                        )}
-                                    </Button>
-                                </div>
-                            </div>
-                            <Button className="w-full" type="submit" disabled={isLoading}>
-                                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                {isLoading ? 'Signing In...' : 'Sign In'}
-                            </Button>
-                        </form>
-                    </TabsContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <AnimatePresence mode="wait">
+                    {!isLogin && (
+                        <motion.div
+                            key="name-field"
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="space-y-1 overflow-hidden"
+                        >
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-gray-300 ml-1">Name</label>
+                            <input
+                                name="fullName"
+                                placeholder="Full name"
+                                required
+                                className="w-full px-4 py-3 bg-gray-50/50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:border-black focus:bg-white transition-all font-medium"
+                            />
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
-                    <TabsContent value="signup">
-                        <form action={handleSignup} className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="fullName">Full Name</Label>
-                                <Input id="fullName" name="fullName" placeholder="John Doe" required className="bg-background/50" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="email">Email</Label>
-                                <Input id="email" name="email" type="email" placeholder="m@example.com" required className="bg-background/50" />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="password-signup">Password</Label>
-                                <div className="relative">
-                                    <Input
-                                        id="password-signup"
-                                        name="password"
-                                        type={showPassword ? "text" : "password"}
-                                        required
-                                        className="bg-background/50 pr-10"
-                                    />
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="sm"
-                                        className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                    >
-                                        {showPassword ? (
-                                            <EyeOff className="h-4 w-4 text-muted-foreground" />
-                                        ) : (
-                                            <Eye className="h-4 w-4 text-muted-foreground" />
-                                        )}
-                                    </Button>
-                                </div>
-                            </div>
-                            <Button className="w-full" type="submit" disabled={isLoading}>
-                                {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                {isLoading ? 'Creating Account...' : 'Create Account'}
-                            </Button>
-                        </form>
-                    </TabsContent>
-                </Tabs>
+                <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-300 ml-1">Email</label>
+                    <input
+                        name="email"
+                        type="email"
+                        placeholder="you@email.com"
+                        required
+                        className="w-full px-4 py-3 bg-gray-50/50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:border-black focus:bg-white transition-all font-medium"
+                    />
+                </div>
+                <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-300 ml-1">Password</label>
+                    <input
+                        name="password"
+                        type="password"
+                        required
+                        className="w-full px-4 py-3 bg-gray-50/50 border border-gray-100 rounded-xl text-sm focus:outline-none focus:border-black focus:bg-white transition-all font-medium"
+                    />
+                </div>
 
-                <div className="relative my-6">
-                    <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-background px-2 text-muted-foreground">Or continue with</span>
-                    </div>
+                <motion.button
+                    whileHover={{ scale: 1.01 }}
+                    whileTap={{ scale: 0.98 }}
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full py-3.5 bg-black text-white text-[11px] font-bold uppercase tracking-widest rounded-xl hover:bg-gray-800 disabled:bg-gray-100 disabled:text-gray-300 transition-all mt-8 flex items-center justify-center gap-2"
+                >
+                    {isLoading ? (
+                        <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+                            className="w-4 h-4 border-2 border-white/20 border-t-white rounded-full"
+                        />
+                    ) : (isLogin ? 'Continue' : 'Create account')}
+                </motion.button>
+            </form>
+
+            <motion.div
+                layout
+                className="mt-10 text-center pb-12"
+            >
+                <button
+                    onClick={() => setIsLogin(!isLogin)}
+                    className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-black transition-colors underline underline-offset-8 decoration-gray-100"
+                >
+                    {isLogin ? "No account? Register" : "Have account? Login"}
+                </button>
+
+                <div className="my-10 h-px bg-gray-50 flex items-center justify-center relative">
+                    <span className="bg-white px-4 text-[9px] text-gray-300 font-bold uppercase tracking-widest italic relative z-10">Social access</span>
                 </div>
 
                 <form action={loginWithGoogle}>
-                    <Button variant="outline" type="submit" className="w-full bg-background/50">
-                        <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
-                            <path
-                                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                                fill="#4285F4"
-                            />
-                            <path
-                                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                                fill="#34A853"
-                            />
-                            <path
-                                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                                fill="#FBBC05"
-                            />
-                            <path
-                                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                                fill="#EA4335"
-                            />
-                        </svg>
-                        Google
-                    </Button>
+                    <motion.button
+                        whileHover={{ y: -1 }}
+                        whileTap={{ y: 0 }}
+                        type="submit"
+                        className="w-full flex items-center justify-center gap-3 py-3 border border-gray-100 rounded-xl text-[11px] font-bold uppercase tracking-widest text-gray-500 hover:bg-gray-50 hover:text-black hover:border-black transition-all"
+                    >
+                        Continue with Google
+                    </motion.button>
                 </form>
-            </CardContent>
-        </Card>
+            </motion.div>
+        </motion.div>
     )
 }

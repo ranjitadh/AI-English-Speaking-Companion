@@ -7,7 +7,7 @@ import bcrypt from 'bcryptjs'
 
 export async function login(formData: FormData) {
     try {
-        await signIn('credentials', formData)
+        await signIn('credentials', { ...Object.fromEntries(formData), redirectTo: '/dashboard' })
     } catch (error) {
         if (error instanceof AuthError) {
             switch (error.type) {
@@ -46,15 +46,12 @@ export async function signup(formData: FormData) {
                 email,
                 password: hashedPassword,
                 name,
-                // Default values for app specific fields are handled by Prisma schema default()
             }
         })
 
-        // Attempt to sign in immediately after signup
-        await signIn('credentials', formData)
-
+        // Success! We don't sign in here to avoid redirect issues in the signup flow.
+        // We'll let the client handle it.
         return { success: true }
-
     } catch (error) {
         console.error("Signup error:", error)
         return { error: "Failed to create account" }
@@ -62,9 +59,9 @@ export async function signup(formData: FormData) {
 }
 
 export async function loginWithGoogle() {
-    await signIn('google')
+    await signIn('google', { redirectTo: '/dashboard' })
 }
 
 export async function logout() {
-    await signOut()
+    await signOut({ redirectTo: '/login' })
 }

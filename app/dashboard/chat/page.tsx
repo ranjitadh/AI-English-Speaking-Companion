@@ -1,144 +1,154 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
+import { useChat } from '@ai-sdk/react'
+import { TextStreamChatTransport } from 'ai'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Send, User as UserIcon, MoreVertical, Phone } from 'lucide-react'
+import { Send, Sparkles, MessageSquare, MicIcon } from 'lucide-react'
 import { cn } from "@/lib/utils"
 
-type Message = {
-    id: string
-    role: 'user' | 'assistant'
-    content: string
-    timestamp: Date
-}
+const transport = new TextStreamChatTransport({ api: '/api/chat' })
 
 export default function ChatInterface() {
-    const [messages, setMessages] = useState<Message[]>([
-        {
-            id: '1',
-            role: 'assistant',
-            content: 'Hi! How are you feeling today?',
-            timestamp: new Date()
-        }
-    ])
     const [input, setInput] = useState('')
-    const [isTyping, setIsTyping] = useState(false)
+
+    const { messages, status, sendMessage } = useChat({
+        transport,
+        messages: [
+            {
+                id: '1',
+                role: 'assistant' as const,
+                content: 'Hello. Let\'s practice your English today. What shall we talk about?',
+                parts: [{ type: 'text' as const, text: 'Hello. Let\'s practice your English today. What shall we talk about?' }]
+            }
+        ]
+    })
+
+    const isLoading = status === 'submitted' || status === 'streaming'
     const scrollRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         if (scrollRef.current) {
-            // @ts-ignore
             scrollRef.current.scrollIntoView({ behavior: "smooth" })
         }
     }, [messages])
 
-    const handleSend = async () => {
-        if (!input.trim()) return
-
-        const newMessage: Message = {
-            id: Date.now().toString(),
-            role: 'user',
-            content: input,
-            timestamp: new Date()
-        }
-
-        setMessages(prev => [...prev, newMessage])
+    const handleSend = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!input.trim() || isLoading) return
+        sendMessage({ text: input })
         setInput('')
-        setIsTyping(true)
+    }
 
-        // Simulate AI response
-        setTimeout(() => {
-            const aiResponse: Message = {
-                id: (Date.now() + 1).toString(),
-                role: 'assistant',
-                content: `That sounds interesting! Tell me more about "${newMessage.content}".`,
-                timestamp: new Date()
-            }
-            setMessages(prev => [...prev, aiResponse])
-            setIsTyping(false)
-        }, 1500)
+    const getMessageText = (message: (typeof messages)[number]): string => {
+        if (message.content) return message.content
+        const textPart = message.parts?.find((p) => p.type === 'text')
+        if (textPart && 'text' in textPart) return textPart.text as string
+        return ''
     }
 
     return (
-        <div className="flex flex-col h-[calc(100vh-8rem)]">
-            <div className="flex items-center justify-between p-4 border-b bg-card">
+        <div className="flex flex-col h-[calc(100vh-8rem)] bg-white max-w-2xl mx-auto border border-gray-100 mt-4 rounded-2xl overflow-hidden relative shadow-2xl shadow-black/[0.02]">
+            {/* Minimal Header */}
+            <div className="flex items-center justify-between px-8 py-6 border-b border-gray-50 bg-white/80 backdrop-blur-md sticky top-0 z-10">
                 <div className="flex items-center gap-3">
-                    <Avatar>
-                        <AvatarImage src="/ai-avatar.png" />
-                        <AvatarFallback>AI</AvatarFallback>
-                    </Avatar>
+                    <div className="w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center border border-gray-100">
+                        <Sparkles className="w-4 h-4 text-gray-400" />
+                    </div>
                     <div>
-                        <h3 className="font-semibold">English Companion</h3>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                            Online
-                        </p>
+                        <h3 className="text-[11px] font-bold tracking-[0.2em] text-gray-900 uppercase">AI Language Coach</h3>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="icon">
-                        <Phone className="h-5 w-5 text-muted-foreground" />
-                    </Button>
-                    <Button variant="ghost" size="icon">
-                        <MoreVertical className="h-5 w-5 text-muted-foreground" />
-                    </Button>
+                <div className="flex items-center gap-3">
+                    <div className={cn("w-1.5 h-1.5 rounded-full", isLoading ? "bg-black animate-pulse" : "bg-emerald-400")} />
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{isLoading ? 'Thinking' : 'Online'}</span>
                 </div>
             </div>
 
-            <ScrollArea className="flex-1 p-4 bg-muted/10">
-                <div className="space-y-4 max-w-3xl mx-auto">
-                    {messages.map((message) => (
-                        <div
-                            key={message.id}
-                            className={cn(
-                                "flex w-max max-w-[80%] flex-col gap-2 rounded-lg px-3 py-2 text-sm",
-                                message.role === 'user'
-                                    ? "ml-auto bg-primary text-primary-foreground"
-                                    : "bg-muted text-foreground"
-                            )}
+            {/* Chat Area */}
+            <ScrollArea className="flex-1 px-8 pt-10 pb-4 bg-white">
+                <div className="space-y-12 max-w-xl mx-auto">
+                    <AnimatePresence initial={false}>
+                        {messages.map((message) => {
+                            const isUser = (message.role as string) === 'user'
+                            return (
+                                <motion.div
+                                    key={message.id}
+                                    initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                    transition={{ duration: 0.4, ease: "easeOut" }}
+                                    className={cn(
+                                        "flex w-full group",
+                                        isUser ? "justify-end" : "justify-start"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "max-w-[85%] text-sm leading-relaxed",
+                                        isUser
+                                            ? "text-black font-semibold bg-gray-50 px-6 py-4 rounded-2xl rounded-tr-none border border-gray-100 shadow-sm shadow-black/5"
+                                            : "text-gray-600 bg-white px-1 py-1 border-l-2 border-gray-100 pl-6 group-hover:border-black transition-colors"
+                                    )}>
+                                        {getMessageText(message)}
+                                    </div>
+                                </motion.div>
+                            )
+                        })}
+                    </AnimatePresence>
+
+                    {isLoading && (
+                        <motion.div
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0 }}
+                            className="flex justify-start"
                         >
-                            {message.content}
-                            <span className="text-[10px] opacity-70 block text-right">
-                                {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                        </div>
-                    ))}
-                    {isTyping && (
-                        <div className="bg-muted text-foreground w-max rounded-lg px-3 py-2 text-sm">
-                            <div className="flex gap-1">
-                                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-                                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-                                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></span>
+                            <div className="text-gray-300 italic text-[11px] font-bold uppercase tracking-widest pl-6 border-l-2 border-gray-50 py-1 transition-all">
+                                <span className="flex items-center gap-2">
+                                    <motion.span
+                                        animate={{ opacity: [0.4, 1, 0.4] }}
+                                        transition={{ repeat: Infinity, duration: 1.5 }}
+                                    >
+                                        Generating...
+                                    </motion.span>
+                                </span>
                             </div>
-                        </div>
+                        </motion.div>
                     )}
-                    <div ref={scrollRef} />
+                    <div ref={scrollRef} className="h-20" />
                 </div>
             </ScrollArea>
 
-            <div className="p-4 border-t bg-card mt-auto">
+            {/* Simple Input */}
+            <div className="p-8 bg-white border-t border-gray-50">
                 <form
-                    onSubmit={(e) => {
-                        e.preventDefault()
-                        handleSend()
-                    }}
-                    className="flex w-full items-center space-x-2 max-w-3xl mx-auto"
+                    onSubmit={handleSend}
+                    className="flex items-center gap-4 relative max-w-xl mx-auto"
                 >
-                    <Input
-                        placeholder="Type a message..."
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        disabled={isTyping}
-                        className="flex-1"
-                    />
-                    <Button type="submit" size="icon" disabled={!input.trim() || isTyping}>
-                        <Send className="h-4 w-4" />
-                        <span className="sr-only">Send</span>
-                    </Button>
+                    <motion.div
+                        initial={false}
+                        animate={isLoading ? { opacity: 0.5 } : { opacity: 1 }}
+                        className="flex-1 flex gap-3"
+                    >
+                        <input
+                            placeholder="Type an English sentence..."
+                            value={input}
+                            onChange={(e) => setInput(e.target.value)}
+                            disabled={isLoading}
+                            className="flex-1 bg-gray-50/50 border border-gray-100 focus:border-black focus:bg-white focus:outline-none h-14 px-6 rounded-xl text-sm font-medium transition-all"
+                        />
+                        <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            type="submit"
+                            disabled={!input.trim() || isLoading}
+                            className="h-14 px-8 bg-black text-white rounded-xl text-[11px] font-bold uppercase tracking-widest hover:bg-gray-800 disabled:bg-gray-100 disabled:text-gray-300 transition-all flex items-center justify-center gap-3 active:scale-95"
+                        >
+                            <Send className="w-3 h-3" />
+                            Send
+                        </motion.button>
+                    </motion.div>
                 </form>
             </div>
         </div>
