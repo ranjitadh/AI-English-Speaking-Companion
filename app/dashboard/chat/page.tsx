@@ -1,156 +1,173 @@
 'use client'
 
-import React, { useState, useEffect, useRef } from 'react'
 import { useChat } from '@ai-sdk/react'
-import { TextStreamChatTransport } from 'ai'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Send, Sparkles, MessageSquare, MicIcon } from 'lucide-react'
-import { cn } from "@/lib/utils"
-
-const transport = new TextStreamChatTransport({ api: '/api/chat' })
+import { Send, User, Bot, Sparkles, Mic, MessageCircle, MoreHorizontal, ArrowLeft } from 'lucide-react'
+import { useRef, useEffect } from 'react'
+import Link from 'next/link'
 
 export default function ChatInterface() {
-    const [input, setInput] = useState('')
-
-    const { messages, status, sendMessage } = useChat({
-        transport,
-        messages: [
-            {
-                id: '1',
-                role: 'assistant' as const,
-                content: 'Hello. Let\'s practice your English today. What shall we talk about?',
-                parts: [{ type: 'text' as const, text: 'Hello. Let\'s practice your English today. What shall we talk about?' }]
-            }
-        ]
+    const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+        api: '/api/chat',
     })
 
-    const isLoading = status === 'submitted' || status === 'streaming'
-    const scrollRef = useRef<HTMLDivElement>(null)
+    const messagesEndRef = useRef<HTMLDivElement>(null)
+
+    const scrollToBottom = () => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
 
     useEffect(() => {
-        if (scrollRef.current) {
-            scrollRef.current.scrollIntoView({ behavior: "smooth" })
-        }
+        scrollToBottom()
     }, [messages])
 
-    const handleSend = async (e: React.FormEvent) => {
-        e.preventDefault()
-        if (!input.trim() || isLoading) return
-        sendMessage({ text: input })
-        setInput('')
-    }
-
-    const getMessageText = (message: (typeof messages)[number]): string => {
-        if (message.content) return message.content
-        const textPart = message.parts?.find((p) => p.type === 'text')
-        if (textPart && 'text' in textPart) return textPart.text as string
-        return ''
-    }
-
     return (
-        <div className="flex flex-col h-[calc(100vh-8rem)] bg-white max-w-2xl mx-auto border border-gray-100 mt-4 rounded-2xl overflow-hidden relative shadow-2xl shadow-black/[0.02]">
-            {/* Minimal Header */}
-            <div className="flex items-center justify-between px-8 py-6 border-b border-gray-50 bg-white/80 backdrop-blur-md sticky top-0 z-10">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-xl bg-gray-50 flex items-center justify-center border border-gray-100">
-                        <Sparkles className="w-4 h-4 text-gray-400" />
-                    </div>
+        <div className="flex flex-col h-full bg-[#FDFCFB] selection:bg-[#1E1B4B] selection:text-white">
+            {/* Editorial Header */}
+            <header className="px-8 py-8 border-b border-[#ECE7E3] bg-[#FDFCFB]/80 backdrop-blur-md sticky top-0 z-10 flex items-center justify-between">
+                <div className="flex items-center gap-6">
+                    <Link href="/dashboard" className="p-3 bg-white border border-[#ECE7E3] text-[#D5CDC6] hover:text-[#1E1B4B] hover:border-[#1E1B4B] rounded-2xl transition-all shadow-sm shadow-black/[0.01]">
+                        <ArrowLeft className="w-4 h-4" />
+                    </Link>
                     <div>
-                        <h3 className="text-[11px] font-bold tracking-[0.2em] text-gray-900 uppercase">AI Language Coach</h3>
+                        <h1 className="text-2xl font-bold tracking-tight text-[#1E1B4B] flex items-center gap-3">
+                            AI Chat
+                            <span className="inline-block w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-lg shadow-emerald-500/20" />
+                        </h1>
+                        <p className="text-[10px] font-bold text-[#8E867F] uppercase tracking-[0.25em] italic font-serif">"Active ritual session. Focused practice."</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className={cn("w-1.5 h-1.5 rounded-full", isLoading ? "bg-black animate-pulse" : "bg-emerald-400")} />
-                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{isLoading ? 'Thinking' : 'Online'}</span>
+                    <div className="px-4 py-2 border border-[#ECE7E3] bg-[#F6F2EE]/50 rounded-full text-[9px] font-bold text-[#8E867F] uppercase tracking-[0.2em] flex items-center gap-2">
+                        <Sparkles className="w-3 h-3 text-[#1E1B4B]" />
+                        v1.2 Beta Core
+                    </div>
+                    <button className="p-3 text-[#D5CDC6] hover:text-[#1E1B4B] transition-colors rounded-2xl bg-white border border-[#ECE7E3] shadow-sm shadow-black/[0.01]">
+                        <MoreHorizontal className="w-4 h-4" />
+                    </button>
                 </div>
-            </div>
+            </header>
 
-            {/* Chat Area */}
-            <ScrollArea className="flex-1 px-8 pt-10 pb-4 bg-white">
-                <div className="space-y-12 max-w-xl mx-auto">
+            {/* Messages Scroll Area */}
+            <div className="flex-1 overflow-y-auto px-6 py-12 md:px-14">
+                <div className="max-w-3xl mx-auto space-y-12">
+                    {messages.length === 0 && (
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-center py-20 space-y-8"
+                        >
+                            <div className="w-16 h-16 bg-white border border-[#ECE7E3] rounded-3xl mx-auto flex items-center justify-center shadow-sm shadow-black/[0.02]">
+                                <MessageCircle className="w-6 h-6 text-[#1E1B4B]" />
+                            </div>
+                            <div className="space-y-4">
+                                <h2 className="text-xl font-bold text-[#1E1B4B]">Start your conversation.</h2>
+                                <p className="text-sm font-medium text-[#8E867F] italic font-serif max-w-xs mx-auto">"Practice makes progress. What is on your mind today?"</p>
+                            </div>
+                        </motion.div>
+                    )}
+
                     <AnimatePresence initial={false}>
-                        {messages.map((message) => {
-                            const isUser = (message.role as string) === 'user'
-                            return (
-                                <motion.div
-                                    key={message.id}
-                                    initial={{ opacity: 0, scale: 0.95, y: 15 }}
-                                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                                    transition={{ duration: 0.4, ease: "easeOut" }}
-                                    className={cn(
-                                        "flex w-full group",
-                                        isUser ? "justify-end" : "justify-start"
-                                    )}
+                        {messages.map((m) => (
+                            <motion.div
+                                key={m.id}
+                                initial={{ opacity: 0, y: 15, scale: 0.98 }}
+                                animate={{ opacity: 1, y: 0, scale: 1 }}
+                                className={`flex gap-6 ${m.role === 'user' ? 'flex-row-reverse' : ''}`}
+                            >
+                                <div className={`flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center border shadow-sm shadow-black/[0.01] transition-all
+                  ${m.role === 'user'
+                                        ? 'bg-[#1E1B4B] border-[#1E1B4B] text-white shadow-xl shadow-indigo-900/10'
+                                        : 'bg-white border-[#ECE7E3] text-[#1E1B4B]'
+                                    }`}
                                 >
-                                    <div className={cn(
-                                        "max-w-[85%] text-sm leading-relaxed",
-                                        isUser
-                                            ? "text-black font-semibold bg-gray-50 px-6 py-4 rounded-2xl rounded-tr-none border border-gray-100 shadow-sm shadow-black/5"
-                                            : "text-gray-600 bg-white px-1 py-1 border-l-2 border-gray-100 pl-6 group-hover:border-black transition-colors"
-                                    )}>
-                                        {getMessageText(message)}
+                                    {m.role === 'user' ? <User className="w-5 h-5" /> : <Bot className="w-5 h-5" />}
+                                </div>
+
+                                <div className={`group relative max-w-[80%] space-y-2 ${m.role === 'user' ? 'items-end' : ''}`}>
+                                    <div className={`p-6 rounded-[2rem] text-sm leading-relaxed transition-all
+                    ${m.role === 'user'
+                                            ? 'bg-white border border-[#ECE7E3] text-[#1E1B4B] rounded-tr-none hover:border-[#1E1B4B] shadow-sm shadow-black/[0.02]'
+                                            : 'bg-[#F6F2EE] border border-transparent text-[#1E1B4B] rounded-tl-none hover:bg-[#EBE6E1] shadow-inner shadow-black/[0.01]'
+                                        }`}
+                                    >
+                                        {m.content}
                                     </div>
-                                </motion.div>
-                            )
-                        })}
+                                    <div className={`flex items-center gap-3 px-3 text-[9px] font-bold text-[#D5CDC6] uppercase tracking-widest italic
+                    ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                    >
+                                        {m.role === 'user' ? 'Practitioner' : 'AI Companion'}
+                                        <span className="w-1 h-1 bg-[#EBE6E1] rounded-full" />
+                                        Now
+                                    </div>
+                                </div>
+                            </motion.div>
+                        ))}
                     </AnimatePresence>
 
                     {isLoading && (
                         <motion.div
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0 }}
-                            className="flex justify-start"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="flex gap-6 items-center"
                         >
-                            <div className="text-gray-300 italic text-[11px] font-bold uppercase tracking-widest pl-6 border-l-2 border-gray-50 py-1 transition-all">
-                                <span className="flex items-center gap-2">
-                                    <motion.span
-                                        animate={{ opacity: [0.4, 1, 0.4] }}
-                                        transition={{ repeat: Infinity, duration: 1.5 }}
-                                    >
-                                        Generating...
-                                    </motion.span>
-                                </span>
+                            <div className="w-12 h-12 bg-white border border-[#ECE7E3] text-[#1E1B4B] rounded-2xl flex items-center justify-center shadow-sm shadow-black/[0.01]">
+                                <Bot className="w-5 h-5" />
+                            </div>
+                            <div className="flex gap-1.5 items-center px-6 py-4 bg-[#F6F2EE] border border-transparent rounded-[1.5rem] rounded-tl-none">
+                                <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1 }} className="w-1.5 h-1.5 bg-[#D5CDC6] rounded-full" />
+                                <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1, delay: 0.2 }} className="w-1.5 h-1.5 bg-[#D5CDC6] rounded-full" />
+                                <motion.div animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1, delay: 0.4 }} className="w-1.5 h-1.5 bg-[#D5CDC6] rounded-full" />
                             </div>
                         </motion.div>
                     )}
-                    <div ref={scrollRef} className="h-20" />
+                    <div ref={messagesEndRef} />
                 </div>
-            </ScrollArea>
-
-            {/* Simple Input */}
-            <div className="p-8 bg-white border-t border-gray-50">
-                <form
-                    onSubmit={handleSend}
-                    className="flex items-center gap-4 relative max-w-xl mx-auto"
-                >
-                    <motion.div
-                        initial={false}
-                        animate={isLoading ? { opacity: 0.5 } : { opacity: 1 }}
-                        className="flex-1 flex gap-3"
-                    >
-                        <input
-                            placeholder="Type an English sentence..."
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            disabled={isLoading}
-                            className="flex-1 bg-gray-50/50 border border-gray-100 focus:border-black focus:bg-white focus:outline-none h-14 px-6 rounded-xl text-sm font-medium transition-all"
-                        />
-                        <motion.button
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.95 }}
-                            type="submit"
-                            disabled={!input.trim() || isLoading}
-                            className="h-14 px-8 bg-black text-white rounded-xl text-[11px] font-bold uppercase tracking-widest hover:bg-gray-800 disabled:bg-gray-100 disabled:text-gray-300 transition-all flex items-center justify-center gap-3 active:scale-95"
-                        >
-                            <Send className="w-3 h-3" />
-                            Send
-                        </motion.button>
-                    </motion.div>
-                </form>
             </div>
+
+            {/* Luxury Input Section */}
+            <footer className="p-8 md:px-14 md:pb-12 bg-[#FDFCFB]">
+                <div className="max-w-3xl mx-auto">
+                    <form
+                        onSubmit={handleSubmit}
+                        className="relative flex items-center group"
+                    >
+                        <div className="absolute left-6 text-[#D5CDC6] group-focus-within:text-[#1E1B4B] transition-colors">
+                            <Sparkles className="w-4 h-4" />
+                        </div>
+                        <input
+                            value={input}
+                            onChange={handleInputChange}
+                            placeholder="What is on your mind? Start speaking..."
+                            className="w-full pl-16 pr-32 py-6 bg-white border border-[#ECE7E3] rounded-[2.5rem] text-sm focus:outline-none focus:border-[#1E1B4B] transition-all font-medium text-[#1E1B4B] shadow-lg shadow-black/[0.03]"
+                        />
+                        <div className="absolute right-4 flex items-center gap-2">
+                            <button
+                                type="button"
+                                className="p-3 text-[#D5CDC6] hover:text-[#1E1B4B] hover:bg-[#F6F2EE] rounded-2xl transition-all"
+                            >
+                                <Mic className="w-5 h-5" />
+                            </button>
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                type="submit"
+                                disabled={!input || isLoading}
+                                className="p-4 bg-[#1E1B4B] text-white disabled:bg-[#F1EDE9] disabled:text-[#D5CDC6] rounded-2xl transition-all shadow-xl shadow-indigo-900/10 flex items-center justify-center"
+                            >
+                                <Send className="w-4 h-4" />
+                            </motion.button>
+                        </div>
+                    </form>
+                    <div className="mt-6 flex justify-center gap-10 items-center">
+                        <span className="text-[9px] font-bold text-[#D5CDC6] uppercase tracking-[0.25em] italic">Press Enter to ritualize</span>
+                        <div className="flex gap-6">
+                            <button className="text-[9px] font-bold text-[#D5CDC6] uppercase tracking-[0.2em] hover:text-[#1E1B4B] transition-colors">Clear Ritual</button>
+                            <button className="text-[9px] font-bold text-[#D5CDC6] uppercase tracking-[0.2em] hover:text-[#1E1B4B] transition-colors">Export Log</button>
+                        </div>
+                    </div>
+                </div>
+            </footer>
         </div>
     )
 }
