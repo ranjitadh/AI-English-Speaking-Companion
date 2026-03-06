@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { auth } from '@/auth'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
+import { motion, Variants } from 'framer-motion'
 import { MessageSquare, Mic, BookOpen, Clock, ArrowUpRight, TrendingUp, Zap, Sparkles } from 'lucide-react'
 import { getSession } from 'next-auth/react'
 
@@ -60,7 +60,7 @@ export default function DashboardPage() {
         }
     }
 
-    const itemVariants = {
+    const itemVariants: Variants = {
         hidden: { opacity: 0, y: 15 },
         visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
     }

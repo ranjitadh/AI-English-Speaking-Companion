@@ -3,23 +3,46 @@
 import { useChat } from '@ai-sdk/react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Send, User, Bot, Sparkles, Mic, MessageCircle, MoreHorizontal, ArrowLeft } from 'lucide-react'
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import Link from 'next/link'
 
 export default function ChatInterface() {
-    const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
-        api: '/api/chat',
-    })
+    const [isMounted, setIsMounted] = useState(false)
+    const [input, setInput] = useState('')
+
+    const { messages, sendMessage, status, stop } = useChat()
+
+    const isLoading = status === 'submitted' || status === 'streaming'
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setInput(e.target.value)
+    }
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!input.trim() || isLoading) return
+
+        sendMessage({ role: 'user', content: input } as any)
+        setInput('')
+    }
 
     const messagesEndRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        setIsMounted(true)
+    }, [])
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
     }
 
     useEffect(() => {
-        scrollToBottom()
-    }, [messages])
+        if (isMounted) {
+            scrollToBottom()
+        }
+    }, [messages, isMounted])
+
+    if (!isMounted) return null
 
     return (
         <div className="flex flex-col h-full bg-[#FDFCFB] selection:bg-[#1E1B4B] selection:text-white">
@@ -68,7 +91,7 @@ export default function ChatInterface() {
                     )}
 
                     <AnimatePresence initial={false}>
-                        {messages.map((m) => (
+                        {messages.map((m: any) => (
                             <motion.div
                                 key={m.id}
                                 initial={{ opacity: 0, y: 15, scale: 0.98 }}
@@ -91,7 +114,7 @@ export default function ChatInterface() {
                                             : 'bg-[#F6F2EE] border border-transparent text-[#1E1B4B] rounded-tl-none hover:bg-[#EBE6E1] shadow-inner shadow-black/[0.01]'
                                         }`}
                                     >
-                                        {m.content}
+                                        {m.parts ? m.parts.filter((p: any) => p.type === 'text').map((p: any, i: number) => <span key={i}>{p.text}</span>) : m.content}
                                     </div>
                                     <div className={`flex items-center gap-3 px-3 text-[9px] font-bold text-[#D5CDC6] uppercase tracking-widest italic
                     ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}
@@ -152,7 +175,7 @@ export default function ChatInterface() {
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 type="submit"
-                                disabled={!input || isLoading}
+                                disabled={!input.trim() || isLoading}
                                 className="p-4 bg-[#1E1B4B] text-white disabled:bg-[#F1EDE9] disabled:text-[#D5CDC6] rounded-2xl transition-all shadow-xl shadow-indigo-900/10 flex items-center justify-center"
                             >
                                 <Send className="w-4 h-4" />
